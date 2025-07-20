@@ -59,7 +59,7 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Keep same dark theme as it's our primary theme */
+    /* Dark theme - primary gaming theme */
     --background: 222 47% 6%;
     --foreground: 210 40% 95%;
     --card: 222 47% 8%;
@@ -80,6 +80,29 @@ All colors MUST be HSL.
     --input: 222 47% 12%;
     --ring: 272 86% 60%;
   }
+
+  /* Light theme override */
+  :root:not(.dark) {
+    --background: 0 0% 100%;
+    --foreground: 222 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 84% 4.9%;
+    --primary: 272 86% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 272 86% 60%;
+  }
 }
 
 @layer base {
@@ -88,7 +111,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans antialiased transition-colors duration-300;
     background: linear-gradient(135deg, hsl(var(--background)), hsl(var(--muted) / 0.3));
     min-height: 100vh;
   }
@@ -102,6 +125,7 @@ All colors MUST be HSL.
     background: hsl(var(--card) / 0.8);
     backdrop-filter: blur(12px);
     border: 1px solid hsl(var(--border) / 0.5);
+    transition: var(--transition-smooth);
   }
 
   .joystick-button {

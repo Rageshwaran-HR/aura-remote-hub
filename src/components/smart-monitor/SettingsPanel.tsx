@@ -11,7 +11,7 @@ import axios from 'axios';
 
 export const SettingsPanel: React.FC = () => {
   const [settings, setSettings] = useState({
-    theme: 'dark',
+    theme: localStorage.getItem('theme') || 'dark',
     autoSleep: true,
     sleepTime: [30],
     notifications: true,
@@ -97,6 +97,9 @@ export const SettingsPanel: React.FC = () => {
     
     // Apply theme immediately to document
     document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    
+    // Save to localStorage
+    localStorage.setItem('theme', newTheme);
   };
 
   const restartSystem = async () => {

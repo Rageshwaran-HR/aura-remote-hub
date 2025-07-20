@@ -16,17 +16,19 @@ import { WallpaperManager } from './WallpaperManager';
 import { SystemControls } from './SystemControls';
 import { TodoManager } from './TodoManager';
 import { GamesSection } from './GamesSection';
-import { AppsLauncher } from './AppsLauncher';
 import { SettingsPanel } from './SettingsPanel';
+import { CCTVViewer } from './CCTVViewer';
+import { SpotifyControl } from './SpotifyControl';
 
-type TabType = 'wallpaper' | 'system' | 'todo' | 'games' | 'apps' | 'settings';
+type TabType = 'wallpaper' | 'system' | 'todo' | 'games' | 'cctv' | 'spotify' | 'settings';
 
 const tabs = [
   { id: 'wallpaper', label: 'Wallpaper', icon: Image },
   { id: 'system', label: 'System', icon: Monitor },
   { id: 'todo', label: 'Tasks', icon: CheckSquare },
   { id: 'games', label: 'Games', icon: Gamepad2 },
-  { id: 'apps', label: 'Apps', icon: Grid3X3 },
+  { id: 'cctv', label: 'CCTV', icon: Wifi },
+  { id: 'spotify', label: 'Music', icon: Bluetooth },
   { id: 'settings', label: 'Settings', icon: Settings },
 ] as const;
 
@@ -49,8 +51,10 @@ export const SmartMonitorControl: React.FC = () => {
         return <TodoManager />;
       case 'games':
         return <GamesSection />;
-      case 'apps':
-        return <AppsLauncher />;
+      case 'cctv':
+        return <CCTVViewer />;
+      case 'spotify':
+        return <SpotifyControl />;
       case 'settings':
         return <SettingsPanel />;
       default:
@@ -92,7 +96,7 @@ export const SmartMonitorControl: React.FC = () => {
       {/* Tab Navigation */}
       <Card className="glass-card mb-6 animate-slide-in">
         <div className="p-2">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
             {tabs.map((tab) => {
               const IconComponent = tab.icon;
               const isActive = activeTab === tab.id;
