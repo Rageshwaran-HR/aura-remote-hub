@@ -21,6 +21,8 @@ import { GamesSection } from './GamesSection';
 import { SettingsPanel } from './SettingsPanel';
 import { CCTVViewer } from './CCTVViewer';
 import { SpotifyControl } from './SpotifyControl';
+import { Navbar } from '../layout/Navbar';
+import { Footer } from '../layout/Footer';
 
 type TabType = 'wallpaper' | 'system' | 'todo' | 'games' | 'cctv' | 'spotify' | 'settings';
 
@@ -45,6 +47,13 @@ export const SmartMonitorControl: React.FC = () => {
     lastSeen: '2 seconds ago',
     temperature: 42,
     uptime: '15 days'
+  });
+
+  const [systemInfo] = useState({
+    uptime: '15 days, 3 hours',
+    temperature: 42,
+    version: '2.1.4',
+    memoryUsage: 68
   });
 
   const toggleTheme = () => {
@@ -81,101 +90,52 @@ export const SmartMonitorControl: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 max-w-md mx-auto">
-      {/* Header */}
-      <Card className="glass-card mb-6 animate-slide-in">
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Smart Monitor
-            </h1>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTheme}
-                className="h-8 w-8 rounded-full"
-              >
-                {isDarkMode ? (
-                  <Sun className="h-4 w-4 text-yellow-500" />
-                ) : (
-                  <Moon className="h-4 w-4 text-slate-700" />
-                )}
-              </Button>
-              <div className="flex items-center gap-2">
-                <Wifi className="h-4 w-4 text-primary" />
-                <Bluetooth className="h-4 w-4 text-muted-foreground" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${systemStatus.connected ? 'bg-primary animate-glow-pulse' : 'bg-destructive'}`}></div>
-              <span className="text-sm text-muted-foreground">
-                {systemStatus.connected ? 'Connected' : 'Disconnected'}
-              </span>
-            </div>
-            
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>{systemStatus.temperature}°C</span>
-              <span>{systemStatus.lastSeen}</span>
-            </div>
-          </div>
-        </div>
-      </Card>
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Navbar */}
+      <Navbar 
+        isDarkMode={isDarkMode}
+        onToggleTheme={toggleTheme}
+        systemStatus={systemStatus}
+      />
 
-      {/* Tab Navigation */}
-      <Card className="glass-card mb-6 animate-slide-in">
-        <div className="p-3">
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
-            {tabs.map((tab) => {
-              const IconComponent = tab.icon;
-              const isActive = activeTab === tab.id;
-              
-              return (
-                <Button
-                  key={tab.id}
-                  variant={isActive ? "default" : "ghost"}
-                  className={`min-w-[80px] h-20 flex flex-col items-center justify-center gap-2 transition-all duration-300 ${
-                    isActive 
-                      ? 'bg-gradient-primary shadow-neon text-primary-foreground scale-105' 
-                      : 'hover:bg-muted/50 hover:scale-102'
-                  }`}
-                  onClick={() => setActiveTab(tab.id as TabType)}
-                >
-                  <IconComponent className="h-6 w-6" />
-                  <span className="text-xs font-medium leading-tight">{tab.label}</span>
-                </Button>
-              );
-            })}
-          </div>
-        </div>
-      </Card>
-
-      {/* Content Area */}
-      <div className="animate-slide-in">
-        {renderContent()}
-      </div>
-
-      {/* Quick Status Footer */}
-      <Card className="glass-card mt-6 animate-slide-in">
-        <div className="p-3">
-          <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-3">
-              <Badge variant="secondary" className="text-xs">
-                Uptime: {systemStatus.uptime}
-              </Badge>
-              <Badge variant="secondary" className="text-xs">
-                Temp: {systemStatus.temperature}°C
-              </Badge>
+      {/* Main Content */}
+      <main className="flex-1 px-4 py-6 max-w-md mx-auto w-full">
+        {/* Tab Navigation */}
+        <Card className="glass-card mb-6 animate-slide-in">
+          <div className="p-3">
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+              {tabs.map((tab) => {
+                const IconComponent = tab.icon;
+                const isActive = activeTab === tab.id;
+                
+                return (
+                  <Button
+                    key={tab.id}
+                    variant={isActive ? "default" : "ghost"}
+                    className={`min-w-[80px] h-20 flex flex-col items-center justify-center gap-2 transition-all duration-300 ${
+                      isActive 
+                        ? 'bg-gradient-primary shadow-neon text-primary-foreground scale-105' 
+                        : 'hover:bg-muted/50 hover:scale-102'
+                    }`}
+                    onClick={() => setActiveTab(tab.id as TabType)}
+                  >
+                    <IconComponent className="h-6 w-6" />
+                    <span className="text-xs font-medium leading-tight">{tab.label}</span>
+                  </Button>
+                );
+              })}
             </div>
-            <span className="text-muted-foreground">
-              Smart Monitor Control v2.1.4
-            </span>
           </div>
+        </Card>
+
+        {/* Content Area */}
+        <div className="animate-fade-in">
+          {renderContent()}
         </div>
-      </Card>
+      </main>
+
+      {/* Footer */}
+      <Footer systemInfo={systemInfo} />
     </div>
   );
 };

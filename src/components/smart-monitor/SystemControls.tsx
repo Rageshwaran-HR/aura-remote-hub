@@ -146,8 +146,8 @@ export const SystemControls: React.FC = () => {
   return (
     <div className="space-y-6">
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Monitor className="h-5 w-5 text-primary" />
             Display Controls
           </CardTitle>
@@ -184,8 +184,8 @@ export const SystemControls: React.FC = () => {
       </Card>
 
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Volume2 className="h-5 w-5 text-primary" />
             Audio Controls
           </CardTitle>
@@ -225,8 +225,8 @@ export const SystemControls: React.FC = () => {
       </Card>
 
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Power className="h-5 w-5 text-primary" />
             System Power
           </CardTitle>

@@ -54,6 +54,10 @@ export default {
 					foreground: 'hsl(var(--card-foreground))'
 				}
 			},
+			fontFamily: {
+				sans: ['Inter', 'system-ui', 'sans-serif'],
+				mono: ['JetBrains Mono', 'monospace'],
+			},
 			backgroundImage: {
 				'gradient-primary': 'var(--gradient-primary)',
 				'gradient-neon': 'var(--gradient-neon)',

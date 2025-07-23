@@ -251,9 +251,9 @@ export const TodoManager: React.FC = () => {
   return (
     <div className="space-y-6">
       <Card className="glass-card">
-        <CardHeader>
+        <CardHeader className="pb-4">
           <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 text-lg">
               <CheckSquare className="h-5 w-5 text-primary" />
               Todo List
             </span>
@@ -357,9 +357,9 @@ export const TodoManager: React.FC = () => {
       </Card>
 
       <Card className="glass-card">
-        <CardHeader>
+        <CardHeader className="pb-4">
           <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
+            <span className="flex items-center gap-2 text-lg">
               <Bell className="h-5 w-5 text-primary" />
               Alarms
             </span>

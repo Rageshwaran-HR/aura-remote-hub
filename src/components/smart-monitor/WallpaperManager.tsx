@@ -185,8 +185,8 @@ export const WallpaperManager: React.FC = () => {
   return (
     <div className="space-y-6">
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
             <Image className="h-5 w-5 text-primary" />
             Wallpaper Mode
           </CardTitle>
@@ -197,11 +197,15 @@ export const WallpaperManager: React.FC = () => {
               <Button
                 key={mode}
                 variant={currentMode === mode ? "default" : "outline"}
-                className={`h-12 ${currentMode === mode ? 'bg-gradient-primary shadow-neon' : ''}`}
+                className={`h-12 transition-all duration-300 ${
+                  currentMode === mode 
+                    ? 'bg-gradient-primary shadow-neon scale-105' 
+                    : 'hover:scale-102 hover:border-primary/50'
+                }`}
                 onClick={() => changeMode(mode)}
               >
                 {getModeIcon(mode)}
-                <span className="ml-2 capitalize">{mode}</span>
+                <span className="ml-2 capitalize font-medium">{mode}</span>
               </Button>
             ))}
           </div>
@@ -209,12 +213,10 @@ export const WallpaperManager: React.FC = () => {
       </Card>
 
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-primary" />
-              Upload Wallpaper
-            </span>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Upload className="h-5 w-5 text-primary" />
+            Upload Wallpaper
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -229,22 +231,22 @@ export const WallpaperManager: React.FC = () => {
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="w-full h-12"
-              variant="outline"
+              className="w-full h-12 bg-gradient-primary hover:opacity-90 font-medium"
+              variant="default"
             >
               <Upload className="h-4 w-4 mr-2" />
               {isUploading ? 'Uploading...' : 'Choose Image/Video'}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              Supports: JPG, PNG, GIF, MP4, WebM
+              Supports: JPG, PNG, GIF, MP4, WebM (Max 50MB)
             </p>
           </div>
         </CardContent>
       </Card>
 
       <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>Wallpaper Gallery</CardTitle>
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Wallpaper Gallery</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4">
