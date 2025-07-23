@@ -10,7 +10,9 @@ import {
   Grid3X3, 
   Settings,
   Wifi,
-  Bluetooth
+  Bluetooth,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { WallpaperManager } from './WallpaperManager';
 import { SystemControls } from './SystemControls';
@@ -34,12 +36,28 @@ const tabs = [
 
 export const SmartMonitorControl: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('wallpaper');
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark' || 
+           (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  });
   const [systemStatus] = useState({
     connected: true,
     lastSeen: '2 seconds ago',
     temperature: 42,
     uptime: '15 days'
   });
+
+  const toggleTheme = () => {
+    const newTheme = isDarkMode ? 'light' : 'dark';
+    setIsDarkMode(!isDarkMode);
+    document.documentElement.classList.toggle('dark', !isDarkMode);
+    localStorage.setItem('theme', newTheme);
+  };
+
+  // Apply theme on mount
+  React.useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -71,9 +89,23 @@ export const SmartMonitorControl: React.FC = () => {
             <h1 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
               Smart Monitor
             </h1>
-            <div className="flex items-center gap-2">
-              <Wifi className="h-4 w-4 text-primary" />
-              <Bluetooth className="h-4 w-4 text-muted-foreground" />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="h-8 w-8 rounded-full"
+              >
+                {isDarkMode ? (
+                  <Sun className="h-4 w-4 text-yellow-500" />
+                ) : (
+                  <Moon className="h-4 w-4 text-slate-700" />
+                )}
+              </Button>
+              <div className="flex items-center gap-2">
+                <Wifi className="h-4 w-4 text-primary" />
+                <Bluetooth className="h-4 w-4 text-muted-foreground" />
+              </div>
             </div>
           </div>
           
@@ -95,8 +127,8 @@ export const SmartMonitorControl: React.FC = () => {
 
       {/* Tab Navigation */}
       <Card className="glass-card mb-6 animate-slide-in">
-        <div className="p-2">
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        <div className="p-3">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
             {tabs.map((tab) => {
               const IconComponent = tab.icon;
               const isActive = activeTab === tab.id;
@@ -105,15 +137,15 @@ export const SmartMonitorControl: React.FC = () => {
                 <Button
                   key={tab.id}
                   variant={isActive ? "default" : "ghost"}
-                  className={`h-16 flex flex-col items-center justify-center gap-1 transition-all duration-200 ${
+                  className={`min-w-[80px] h-20 flex flex-col items-center justify-center gap-2 transition-all duration-300 ${
                     isActive 
-                      ? 'bg-gradient-primary shadow-neon text-primary-foreground' 
-                      : 'hover:bg-muted/50'
+                      ? 'bg-gradient-primary shadow-neon text-primary-foreground scale-105' 
+                      : 'hover:bg-muted/50 hover:scale-102'
                   }`}
                   onClick={() => setActiveTab(tab.id as TabType)}
                 >
-                  <IconComponent className="h-5 w-5" />
-                  <span className="text-xs font-medium">{tab.label}</span>
+                  <IconComponent className="h-6 w-6" />
+                  <span className="text-xs font-medium leading-tight">{tab.label}</span>
                 </Button>
               );
             })}

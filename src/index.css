@@ -145,4 +145,19 @@ All colors MUST be HSL.
     box-shadow: var(--shadow-neon);
     border-color: hsl(var(--primary));
   }
+
+  /* Hide scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Smooth hover effects */
+  .hover\:scale-102:hover {
+    transform: scale(1.02);
+  }
 }
