@@ -14,6 +14,7 @@ import {
   Moon,
   Sun
 } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import { WallpaperManager } from './WallpaperManager';
 import { SystemControls } from './SystemControls';
 import { TodoManager } from './TodoManager';
@@ -23,6 +24,15 @@ import { CCTVViewer } from './CCTVViewer';
 import { SpotifyControl } from './SpotifyControl';
 import { Navbar } from '../layout/Navbar';
 import { Footer } from '../layout/Footer';
+
+interface NetworkDevice {
+  id: string;
+  name: string;
+  type: 'raspberry-pi' | 'smart-tv' | 'computer';
+  ip: string;
+  status: 'online' | 'offline';
+  lastSeen?: string;
+}
 
 type TabType = 'wallpaper' | 'system' | 'todo' | 'games' | 'cctv' | 'spotify' | 'settings';
 
@@ -42,8 +52,8 @@ export const SmartMonitorControl: React.FC = () => {
     return localStorage.getItem('theme') === 'dark' || 
            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
-  const [systemStatus] = useState({
-    connected: true,
+  const [systemStatus, setSystemStatus] = useState({
+    connected: false,
     lastSeen: '2 seconds ago',
     temperature: 42,
     uptime: '15 days'
@@ -67,6 +77,21 @@ export const SmartMonitorControl: React.FC = () => {
   React.useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
   }, []);
+
+  const handleConnectionChange = (connected: boolean, device?: NetworkDevice) => {
+    setSystemStatus(prev => ({
+      ...prev,
+      connected,
+      lastSeen: connected ? 'Just now' : prev.lastSeen
+    }));
+
+    if (connected && device) {
+      toast({
+        title: "Device Connected",
+        description: `Successfully connected to ${device.name}`,
+      });
+    }
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -96,6 +121,7 @@ export const SmartMonitorControl: React.FC = () => {
         isDarkMode={isDarkMode}
         onToggleTheme={toggleTheme}
         systemStatus={systemStatus}
+        onConnectionChange={handleConnectionChange}
       />
 
       {/* Main Content */}
