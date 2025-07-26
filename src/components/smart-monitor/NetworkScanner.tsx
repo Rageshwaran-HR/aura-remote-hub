@@ -36,68 +36,120 @@ export const NetworkScanner: React.FC<NetworkScannerProps> = ({
     setDevices([]);
 
     try {
-      // Get local IP range
-      const localIP = await getLocalIP();
-      const subnet = localIP.substring(0, localIP.lastIndexOf('.'));
-      
       toast({
         title: "Network Scan Started",
-        description: `Scanning ${subnet}.0/24 for devices...`,
+        description: "Scanning for Smart Monitor Pi boards...",
       });
 
-      // Scan IP range (simplified for demo)
+      setScanProgress(20);
+      
+      // Try the main Smart Monitor endpoint
       const foundDevices: NetworkDevice[] = [];
       
-      for (let i = 1; i <= 254; i++) {
-        setScanProgress((i / 254) * 100);
-        const targetIP = `${subnet}.${i}`;
-        
-        try {
-          // Use fetch with timeout to check if device responds
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 100);
+      try {
+        const response = await fetch("http://smartmonitor.local:5000", {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+
+        setScanProgress(50);
+
+        if (response.ok) {
+          const data = await response.json();
           
-          const response = await fetch(`http://${targetIP}:80`, {
-            method: 'HEAD',
-            signal: controller.signal,
-            mode: 'no-cors'
-          });
-          
-          clearTimeout(timeout);
-          
-          // If we get here, device responded
-          const device = await identifyDevice(targetIP);
-          if (device) {
+          // Handle the response from Smart Monitor API
+          if (data.devices && Array.isArray(data.devices)) {
+            data.devices.forEach((deviceData: any) => {
+              const device: NetworkDevice = {
+                id: deviceData.id || `pi-${deviceData.ip}`,
+                name: deviceData.name || `Smart Monitor Pi (${deviceData.ip})`,
+                type: 'raspberry-pi',
+                ip: deviceData.ip || 'smartmonitor.local',
+                mac: deviceData.mac,
+                status: deviceData.status || 'online',
+                lastSeen: deviceData.lastSeen || 'Just now',
+                manufacturer: 'Raspberry Pi Foundation',
+                services: deviceData.services || ['Smart Monitor API', 'HTTP', 'SSH']
+              };
+              foundDevices.push(device);
+            });
+          } else {
+            // Single device response
+            const device: NetworkDevice = {
+              id: 'smartmonitor-main',
+              name: data.name || 'Smart Monitor Pi',
+              type: 'raspberry-pi',
+              ip: data.ip || 'smartmonitor.local',
+              mac: data.mac,
+              status: 'online',
+              lastSeen: 'Just now',
+              manufacturer: 'Raspberry Pi Foundation',
+              services: ['Smart Monitor API', 'HTTP', 'SSH']
+            };
             foundDevices.push(device);
-            setDevices([...foundDevices]);
+          }
+        }
+      } catch (fetchError) {
+        console.log('Primary endpoint failed, trying alternative discovery...');
+      }
+
+      setScanProgress(70);
+
+      // Try alternative Pi discovery methods
+      const piEndpoints = [
+        'http://raspberrypi.local:5000',
+        'http://pi.local:5000',
+        'http://smartpi.local:5000'
+      ];
+
+      for (const endpoint of piEndpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            signal: AbortSignal.timeout(2000)
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const hostname = new URL(endpoint).hostname;
+            
+            const device: NetworkDevice = {
+              id: `pi-${hostname}`,
+              name: data.name || `Raspberry Pi (${hostname})`,
+              type: 'raspberry-pi',
+              ip: hostname,
+              status: 'online',
+              lastSeen: 'Just now',
+              manufacturer: 'Raspberry Pi Foundation',
+              services: ['HTTP', 'SSH']
+            };
+            
+            // Avoid duplicates
+            if (!foundDevices.find(d => d.ip === device.ip)) {
+              foundDevices.push(device);
+            }
           }
         } catch (error) {
-          // Device didn't respond or error occurred
-        }
-        
-        // Add small delay to prevent overwhelming the network
-        if (i % 10 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 50));
+          // Endpoint not available
         }
       }
 
-      // Also try mDNS discovery (limited browser support)
-      try {
-        await discoverMDNSDevices(foundDevices);
-      } catch (error) {
-        console.log('mDNS discovery not available');
-      }
+      setScanProgress(100);
+      setDevices(foundDevices);
 
       toast({
         title: "Network Scan Complete",
-        description: `Found ${foundDevices.length} devices`,
+        description: `Found ${foundDevices.length} Smart Monitor Pi device(s)`,
       });
 
     } catch (error) {
       console.error('Network scan failed:', error);
       toast({
         title: "Scan Failed",
-        description: "Could not complete network scan",
+        description: "Could not reach Smart Monitor API",
         variant: "destructive"
       });
     } finally {
