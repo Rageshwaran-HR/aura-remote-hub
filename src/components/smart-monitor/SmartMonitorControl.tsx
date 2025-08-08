@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import {
   Sun
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { piClient } from '@/lib/piClient';
 import { WallpaperManager } from './WallpaperManager';
 import { SystemControls } from './SystemControls';
 import { TodoManager } from './TodoManager';
@@ -32,6 +33,27 @@ interface NetworkDevice {
   ip: string;
   status: 'online' | 'offline';
   lastSeen?: string;
+}
+
+interface PiWallpaper {
+  id: string;
+  fileName: string;
+  displayName: string;
+  size: string;
+  resolution: string;
+  category?: string;
+  url?: string;
+}
+
+interface SystemInfo {
+  uptime: string;
+  temperature: number;
+  version: string;
+  memoryUsage: number;
+  memory: { used: number; total: number };
+  storage: { used: number; total: number };
+  cpu: { usage: number; model: string };
+  timestamp?: string;
 }
 
 type TabType = 'wallpaper' | 'system' | 'todo' | 'games' | 'cctv' | 'spotify' | 'settings';
@@ -59,12 +81,18 @@ export const SmartMonitorControl: React.FC = () => {
     uptime: '15 days'
   });
 
-  const [systemInfo] = useState({
-    uptime: '15 days, 3 hours',
-    temperature: 42,
-    version: '2.1.4',
-    memoryUsage: 68
+  const [systemInfo, setSystemInfo] = useState({
+    uptime: 'Loading...',
+    temperature: 0,
+    version: 'Loading...',
+    memoryUsage: 0,
+    memory: { used: 0, total: 0 },
+    storage: { used: 0, total: 0 },
+    cpu: { usage: 0, model: 'Loading...' }
   });
+
+  const [wallpapers, setWallpapers] = useState<PiWallpaper[]>([]);
+  const [isLoadingSystemInfo, setIsLoadingSystemInfo] = useState(false);
 
   const toggleTheme = () => {
     const newTheme = isDarkMode ? 'light' : 'dark';
@@ -73,10 +101,89 @@ export const SmartMonitorControl: React.FC = () => {
     localStorage.setItem('theme', newTheme);
   };
 
+  // Fetch system information from the Pi
+  const fetchSystemInfo = useCallback(async () => {
+    if (isLoadingSystemInfo) return;
+    
+    setIsLoadingSystemInfo(true);
+    try {
+      console.log('📊 Checking Pi connection status...');
+      
+      // First check if backend server is reachable and Pi is connected
+      let piConnected = false;
+      
+      if (!piClient.isConnected()) {
+        console.log('🔗 Attempting to connect to backend...');
+        const connected = await piClient.connect('192.168.234.180', 5000);
+        if (!connected) {
+          throw new Error('Backend server not reachable or Pi not connected');
+        }
+        piConnected = true;
+      } else {
+        // Already connected to backend, but check if Pi is still connected
+        piConnected = await piClient.checkPiStatus();
+        if (!piConnected) {
+          throw new Error('Pi is not connected');
+        }
+      }
+
+      console.log('📊 Fetching system info from Pi...');
+      const response = await piClient.getSystemInfo();
+      
+      if (response?.success && response.data) {
+        console.log('✅ System info received:', response.data);
+        const systemData = response.data as SystemInfo;
+        setSystemInfo(systemData);
+        
+        // Also update temperature in system status
+        setSystemStatus(prev => ({
+          ...prev,
+          temperature: systemData.temperature,
+          uptime: systemData.uptime,
+          connected: true,
+          lastSeen: 'Just now'
+        }));
+      } else {
+        throw new Error(response?.error || 'Failed to fetch system info');
+      }
+    } catch (error) {
+      console.error('❌ Error fetching system info:', error);
+      
+      // Update system status to show disconnected
+      setSystemStatus(prev => ({
+        ...prev,
+        connected: false,
+        lastSeen: 'Connection failed'
+      }));
+      
+      toast({
+        title: "System Info Error",
+        description: `Failed to fetch system information: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+      
+      // Mark as disconnected
+      setSystemStatus(prev => ({
+        ...prev,
+        connected: false,
+        lastSeen: 'Connection failed'
+      }));
+    } finally {
+      setIsLoadingSystemInfo(false);
+    }
+  }, [isLoadingSystemInfo]);
+
   // Apply theme on mount
-  React.useEffect(() => {
+  useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
-  }, []);
+  }, [isDarkMode]);
+
+  // Removed automatic system info fetching - now only fetched manually via footer button
+  // useEffect(() => {
+  //   fetchSystemInfo();
+  //   const interval = setInterval(fetchSystemInfo, 30000);
+  //   return () => clearInterval(interval);
+  // }, [fetchSystemInfo]);
 
   const handleConnectionChange = (connected: boolean, device?: NetworkDevice) => {
     setSystemStatus(prev => ({
@@ -93,10 +200,15 @@ export const SmartMonitorControl: React.FC = () => {
     }
   };
 
+  const handleWallpapersUpdate = (newWallpapers: PiWallpaper[]) => {
+    console.log('🎨 Updating wallpaper state:', newWallpapers);
+    setWallpapers(newWallpapers);
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'wallpaper':
-        return <WallpaperManager />;
+        return <WallpaperManager piWallpapers={wallpapers} />;
       case 'system':
         return <SystemControls />;
       case 'todo':
@@ -122,6 +234,7 @@ export const SmartMonitorControl: React.FC = () => {
         onToggleTheme={toggleTheme}
         systemStatus={systemStatus}
         onConnectionChange={handleConnectionChange}
+        onWallpapersUpdate={handleWallpapersUpdate}
       />
 
       {/* Main Content */}
@@ -161,7 +274,30 @@ export const SmartMonitorControl: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <Footer systemInfo={systemInfo} />
+      <Footer 
+        systemInfo={systemInfo} 
+        onSystemInfoUpdate={(newSystemInfo) => {
+          // Ensure all required properties are present with defaults
+          const updatedSystemInfo = {
+            uptime: newSystemInfo.uptime,
+            temperature: newSystemInfo.temperature,
+            version: newSystemInfo.version,
+            memoryUsage: newSystemInfo.memoryUsage,
+            memory: newSystemInfo.memory || { used: 0, total: 0 },
+            storage: newSystemInfo.storage || { used: 0, total: 0 },
+            cpu: newSystemInfo.cpu || { usage: 0, model: 'unknown' }
+          };
+          
+          setSystemInfo(updatedSystemInfo);
+          setSystemStatus(prev => ({
+            ...prev,
+            temperature: newSystemInfo.temperature,
+            uptime: newSystemInfo.uptime,
+            connected: true,
+            lastSeen: 'Just now'
+          }));
+        }}
+      />
     </div>
   );
 };

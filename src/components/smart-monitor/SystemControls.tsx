@@ -21,13 +21,22 @@ export const SystemControls: React.FC = () => {
 
   const loadSystemState = async () => {
     try {
+      console.log('📊 Loading initial system state from Pi...');
       const response = await axios.get('/api/system/status');
-      setBrightness([response.data.brightness || 75]);
-      setVolume([response.data.volume || 50]);
-      setIsMuted(response.data.muted || false);
-      setScreenOn(response.data.screenOn !== false);
+      if (response.data.success) {
+        setBrightness([response.data.brightness || 75]);
+        setVolume([response.data.volume || 50]);
+        setIsMuted(response.data.muted || false);
+        setScreenOn(response.data.screenOn !== false);
+        console.log('✅ System state loaded successfully');
+      }
     } catch (error) {
       console.error('Failed to load system state:', error);
+      toast({
+        title: "Connection Error",
+        description: "Cannot load system state from Pi. Using defaults.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -50,22 +59,42 @@ export const SystemControls: React.FC = () => {
   };
 
   const updateVolume = async (value: number[]) => {
+    const newVolume = value[0];
     setVolume(value);
     if (isMuted) setIsMuted(false);
     
     try {
-      await axios.post('/api/system/volume', { level: value[0], muted: false });
-      toast({
-        title: "Volume Updated",
-        description: `Volume set to ${value[0]}%`,
+      console.log(`🔊 Setting volume to ${newVolume}%`);
+      const response = await axios.post('/api/system/volume', { 
+        level: newVolume, 
+        muted: false 
       });
+      
+      if (response.data.success) {
+        toast({
+          title: "Volume Updated",
+          description: `Volume set to ${newVolume}%`,
+        });
+      } else {
+        throw new Error(response.data.error || 'Failed to set volume');
+      }
     } catch (error) {
       console.error('Failed to update volume:', error);
       toast({
-        title: "Error",
-        description: "Failed to update volume",
+        title: "Volume Control Error",
+        description: "Failed to update volume on Pi. Check connection.",
         variant: "destructive"
       });
+      // Revert the UI state on error
+      try {
+        const statusResponse = await axios.get('/api/system/status');
+        if (statusResponse.data.success) {
+          setVolume([statusResponse.data.volume]);
+          setIsMuted(statusResponse.data.muted);
+        }
+      } catch (statusError) {
+        console.error('Failed to get current status:', statusError);
+      }
     }
   };
 
@@ -74,16 +103,27 @@ export const SystemControls: React.FC = () => {
     setIsMuted(newMuted);
     
     try {
-      await axios.post('/api/system/volume', { level: volume[0], muted: newMuted });
-      toast({
-        title: newMuted ? "Muted" : "Unmuted",
-        description: newMuted ? "Audio muted" : "Audio restored",
+      console.log(`🔇 ${newMuted ? 'Muting' : 'Unmuting'} audio`);
+      const response = await axios.post('/api/system/volume', { 
+        level: volume[0], 
+        muted: newMuted 
       });
+      
+      if (response.data.success) {
+        toast({
+          title: newMuted ? "Muted" : "Unmuted",
+          description: newMuted ? "Audio muted" : "Audio restored",
+        });
+      } else {
+        throw new Error(response.data.error || 'Failed to toggle mute');
+      }
     } catch (error) {
       console.error('Failed to toggle mute:', error);
+      // Revert the UI state on error
+      setIsMuted(!newMuted);
       toast({
-        title: "Error",
-        description: "Failed to toggle mute",
+        title: "Mute Control Error",
+        description: "Failed to toggle mute on Pi. Check connection.",
         variant: "destructive"
       });
     }

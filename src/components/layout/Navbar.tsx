@@ -7,6 +7,8 @@ import { Moon, Sun, Wifi, Bluetooth, Monitor, WifiOff, Loader2 } from 'lucide-re
 import { toast } from '@/hooks/use-toast';
 import { NetworkScanner } from '../smart-monitor/NetworkScanner';
 import { BluetoothScanner } from '../smart-monitor/BluetoothScanner';
+import { NetworkDebugger } from '../smart-monitor/NetworkDebugger';
+import { piClient } from '../../lib/piClient';
 
 interface NetworkDevice {
   id: string;
@@ -15,6 +17,36 @@ interface NetworkDevice {
   ip: string;
   status: 'online' | 'offline';
   lastSeen?: string;
+}
+
+interface Wallpaper {
+  id: string;
+  displayName: string;
+  category: string;
+  size: string;
+  url: string;
+  fileName?: string;
+  resolution?: string;
+  isActive?: boolean;
+  path?: string;
+}
+
+interface PiWallpaper {
+  id: string;
+  fileName: string;
+  displayName: string;
+  size: string;
+  resolution: string;
+  category?: string;
+  url?: string;
+  isActive?: boolean;
+  path?: string;
+}
+
+interface WallpaperResponse {
+  wallpapers: Wallpaper[];
+  totalCount: number;
+  totalSize: string;
 }
 
 interface NavbarProps {
@@ -26,36 +58,113 @@ interface NavbarProps {
     lastSeen: string;
   };
   onConnectionChange?: (connected: boolean, device?: NetworkDevice) => void;
+  onWallpapersUpdate?: (wallpapers: PiWallpaper[]) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ 
   isDarkMode, 
   onToggleTheme, 
   systemStatus,
-  onConnectionChange 
+  onConnectionChange,
+  onWallpapersUpdate
 }) => {
   const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [activeConnectionTab, setActiveConnectionTab] = useState('wifi');
 
-  const handleNetworkDeviceSelect = async (device: any) => {
+  // Fetch wallpaper details from Pi
+  const fetchWallpapers = async () => {
+    try {
+      console.log('🎯 Fetching wallpaper details from Pi...');
+      
+      // Use piClient to get wallpapers from the connected Pi
+      const response = await piClient.getWallpapers();
+      
+      if (response && response.data) {
+        const wallpaperData = response.data as WallpaperResponse;
+        console.log('✅ Wallpapers fetched successfully:', wallpaperData);
+        
+        if (wallpaperData.wallpapers) {
+          // Convert to PiWallpaper format for the callback, preserving isActive status from server
+          const piWallpapers: PiWallpaper[] = wallpaperData.wallpapers.map((wallpaper: Wallpaper) => ({
+            id: wallpaper.id,
+            fileName: wallpaper.fileName || `${wallpaper.id}.mp4`,
+            displayName: wallpaper.displayName,
+            size: wallpaper.size,
+            resolution: wallpaper.resolution || 'Unknown',
+            category: wallpaper.category,
+            url: wallpaper.url,
+            isActive: wallpaper.isActive || false, // Preserve active status from server
+            path: wallpaper.path
+          }));
+          
+          onWallpapersUpdate?.(piWallpapers);
+          
+          // Debug: Show which wallpaper is marked as active
+          const activeWallpaper = piWallpapers.find(w => w.isActive);
+          console.log('🎯 Active wallpaper from server:', activeWallpaper?.displayName || 'None');
+          
+          toast({
+            title: "Wallpapers Loaded 🎨",
+            description: `Found ${wallpaperData.totalCount || wallpaperData.wallpapers.length} wallpapers`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error fetching wallpapers:', error);
+      toast({
+        title: "Wallpaper Error",
+        description: "Failed to load wallpaper details from Pi",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleNetworkDeviceSelect = async (device: NetworkDevice) => {
     setIsConnecting(true);
     try {
-      // Simulate connection to network device
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log(`Attempting to establish real connection to ${device.ip}:5000`);
       
-      onConnectionChange?.(true, device);
-      setIsConnectDialogOpen(false);
+      // Use the real PI client to establish connection
+      const connected = await piClient.connect(device.ip, 5000);
       
-      toast({
-        title: "Connected Successfully",
-        description: `Connected to ${device.name}`,
-      });
+      if (connected) {
+        console.log('✅ Real connection established successfully');
+        
+        // Test the connection by getting system status
+        const statusResult = await piClient.getSystemStatus();
+        console.log('📊 System status:', statusResult);
+        
+        // Store connection info for real communication
+        const connectedDevice = {
+          ...device,
+          connectionData: {
+            connectedAt: new Date().toISOString(),
+            baseUrl: `http://${device.ip}:5000`,
+            client: piClient,
+            lastStatusCheck: statusResult
+          }
+        };
+        
+        onConnectionChange?.(true, connectedDevice);
+        setIsConnectDialogOpen(false);
+        
+        // Automatically fetch wallpapers when Pi connects
+        await fetchWallpapers();
+        
+        toast({
+          title: "Real Connection Established! 🎉",
+          description: `Successfully connected to ${device.name} at ${device.ip}:5000`,
+        });
+        
+      } else {
+        throw new Error('Failed to establish connection with Pi client');
+      }
     } catch (error) {
-      console.error('Failed to connect to device:', error);
+      console.error('Failed to establish real connection:', error);
       toast({
         title: "Connection Failed",
-        description: `Could not connect to ${device.name}`,
+        description: `Could not establish real connection to ${device.name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     } finally {
@@ -63,12 +172,12 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const handleBluetoothDeviceSelect = async (device: any) => {
+  const handleBluetoothDeviceSelect = async (device: { id: string; name?: string }) => {
     setIsConnecting(true);
     try {
       onConnectionChange?.(true, { 
         id: device.id, 
-        name: device.name, 
+        name: device.name || 'Unknown Device', 
         type: 'raspberry-pi', 
         ip: 'bluetooth', 
         status: 'online' 
@@ -77,13 +186,51 @@ export const Navbar: React.FC<NavbarProps> = ({
       
       toast({
         title: "Bluetooth Connected",
-        description: `Connected to ${device.name}`,
+        description: `Connected to ${device.name || 'Unknown Device'}`,
       });
     } catch (error) {
       console.error('Failed to connect to Bluetooth device:', error);
       toast({
         title: "Connection Failed",
-        description: `Could not connect to ${device.name}`,
+        description: `Could not connect to ${device.name || 'Unknown Device'}`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleBluetoothAudioConnect = async (device: { id: string; name?: string }) => {
+    setIsConnecting(true);
+    try {
+      console.log(`🎵 Connecting audio device ${device.name} to Pi Bluetooth...`);
+      
+      // Check if Pi is connected first
+      if (!piClient.isConnected()) {
+        throw new Error('Pi not connected. Please connect to your Smart Monitor Pi first.');
+      }
+
+      // Send Bluetooth audio connection command to Pi
+      const connectResult = await piClient.sendCommand('bluetooth_audio_connect', {
+        deviceId: device.id,
+        deviceName: device.name || 'Unknown Device',
+        action: 'connect_audio'
+      });
+
+      if (connectResult.success) {
+        toast({
+          title: "Audio Device Connected! 🎵",
+          description: `${device.name || 'Audio device'} connected to Pi for audio output`,
+        });
+        console.log('✅ Audio device connected successfully:', connectResult);
+      } else {
+        throw new Error(connectResult.error || 'Failed to connect audio device');
+      }
+    } catch (error) {
+      console.error('Failed to connect audio device:', error);
+      toast({
+        title: "Audio Connection Failed",
+        description: `Could not connect ${device.name || 'audio device'}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive"
       });
     } finally {
@@ -93,11 +240,17 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   const disconnect = async () => {
     try {
+      console.log('🔌 Disconnecting from Pi...');
+      
+      // Disconnect using the real client
+      piClient.disconnect();
+      
+      // Clear any stored connection data
       onConnectionChange?.(false);
       
       toast({
         title: "Disconnected",
-        description: "Successfully disconnected from device",
+        description: "Successfully disconnected from Smart Monitor Pi",
       });
     } catch (error) {
       console.error('Failed to disconnect:', error);
@@ -126,6 +279,35 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Status & Controls */}
         <div className="flex items-center gap-3">
+          {/* Bluetooth Audio Scanner */}
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
+              >
+                <Bluetooth className="h-3 w-3 mr-1" />
+                <span className="hidden sm:inline">Audio</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Bluetooth className="h-5 w-5 text-blue-500" />
+                  Connect Audio Device
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="mt-4">
+                <BluetoothScanner 
+                  onDeviceSelect={handleBluetoothAudioConnect}
+                  isConnecting={isConnecting}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* Connection Button */}
           {systemStatus.connected ? (
             <Button
@@ -163,9 +345,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <Wifi className="h-4 w-4" />
                       WiFi/Network
                     </TabsTrigger>
-                    <TabsTrigger value="bluetooth" className="flex items-center gap-2">
-                      <Bluetooth className="h-4 w-4" />
-                      Bluetooth
+                    <TabsTrigger value="debug" className="flex items-center gap-2">
+                      <Monitor className="h-4 w-4" />
+                      Debug
                     </TabsTrigger>
                   </TabsList>
                   
@@ -176,10 +358,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                     />
                   </TabsContent>
                   
-                  <TabsContent value="bluetooth" className="mt-4">
-                    <BluetoothScanner 
-                      onDeviceSelect={handleBluetoothDeviceSelect}
-                      isConnecting={isConnecting}
+                  <TabsContent value="debug" className="mt-4">
+                    <NetworkDebugger 
+                      onDeviceFound={(device) => {
+                        const networkDevice: NetworkDevice = {
+                          id: device.id,
+                          name: device.name,
+                          type: 'raspberry-pi',
+                          ip: device.ip,
+                          status: 'online'
+                        };
+                        handleNetworkDeviceSelect(networkDevice);
+                      }}
                     />
                   </TabsContent>
                 </Tabs>

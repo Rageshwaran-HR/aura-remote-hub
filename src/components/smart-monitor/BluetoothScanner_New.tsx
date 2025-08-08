@@ -39,34 +39,6 @@ export const BluetoothScanner: React.FC<BluetoothScannerProps> = ({
   const [piConnected, setPiConnected] = useState(false);
   const [disconnectingDeviceId, setDisconnectingDeviceId] = useState<string | null>(null);
 
-  // Refresh connected devices status
-  const refreshConnectedDevices = React.useCallback(async () => {
-    if (!piClient.isConnected()) return;
-    
-    try {
-      const connectedResult = await piClient.getConnectedBluetoothDevices();
-      
-      if (connectedResult.success && connectedResult.connectedDevices?.length > 0) {
-        const connectedDevices: CustomBluetoothDevice[] = connectedResult.connectedDevices.map((device: BluetoothDeviceResponse) => ({
-          id: device.id,
-          name: device.name || 'Unknown Device',
-          mac: device.mac || device.id,
-          connected: device.connected,
-          paired: device.paired
-        }));
-        
-        setDevices(connectedDevices);
-      } else if (connectedResult.success && connectedResult.connectedDevices?.length === 0) {
-        // No devices connected, clear the list if we're not currently scanning
-        if (!isScanning) {
-          setDevices([]);
-        }
-      }
-    } catch (error) {
-      console.error("Error refreshing connected devices:", error);
-    }
-  }, [isScanning]);
-
   // Check Pi connection status and get connected devices
   React.useEffect(() => {
     const checkPiAndDevices = async () => {
@@ -108,17 +80,6 @@ export const BluetoothScanner: React.FC<BluetoothScannerProps> = ({
     
     checkPiAndDevices();
   }, []);
-
-  // Periodically refresh connected devices status
-  React.useEffect(() => {
-    if (!piConnected) return;
-
-    const interval = setInterval(() => {
-      refreshConnectedDevices();
-    }, 10000); // Check every 10 seconds
-
-    return () => clearInterval(interval);
-  }, [piConnected, refreshConnectedDevices]);
 
   const scanBluetoothDevices = async () => {
     // Check if Pi is connected
@@ -226,9 +187,6 @@ export const BluetoothScanner: React.FC<BluetoothScannerProps> = ({
           )
         );
 
-        // Refresh connected devices to get updated status
-        await refreshConnectedDevices();
-
         toast({
           title: "Disconnected",
           description: `${device.name} has been disconnected`,
@@ -327,11 +285,11 @@ export const BluetoothScanner: React.FC<BluetoothScannerProps> = ({
                         Connected
                       </Badge>
                       <Button
-                        variant="destructive"
+                        variant="outline"
                         size="sm"
                         onClick={(e) => disconnectBluetoothDevice(device, e)}
                         disabled={disconnectingDeviceId === device.id}
-                        className="h-6 px-2 text-xs"
+                        className="h-7 px-2 text-xs"
                       >
                         {disconnectingDeviceId === device.id ? (
                           <Loader2 className="h-3 w-3 animate-spin" />

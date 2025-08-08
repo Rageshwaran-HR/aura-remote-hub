@@ -9,7 +9,20 @@ import { Settings, Palette, Moon, Sun, Wifi, Bluetooth, Volume2, Monitor, Smartp
 import { toast } from '@/hooks/use-toast';
 import axios from 'axios';
 
-export const SettingsPanel: React.FC = () => {
+interface SettingsPanelProps {
+  systemInfo?: {
+    version: string;
+    uptime: string;
+    storage: { used: number; total: number };
+    memory: { used: number; total: number };
+    temperature: number;
+    cpu?: { usage: number; model: string };
+  };
+}
+
+export const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
+  systemInfo: propSystemInfo 
+}) => {
   const [settings, setSettings] = useState({
     theme: localStorage.getItem('theme') || 'dark',
     autoSleep: true,
@@ -31,21 +44,58 @@ export const SettingsPanel: React.FC = () => {
     voiceCommands: false
   });
 
-  const [systemInfo] = useState({
-    version: '2.1.4',
-    uptime: '15 days, 3 hours',
-    storage: {
-      used: 45,
-      total: 128
-    },
-    memory: {
-      used: 2.8,
-      total: 8
-    },
-    temperature: 42
-  });
+  // System info state
+  const [systemInfo, setSystemInfo] = useState(
+    propSystemInfo || {
+      version: '2.1.4',
+      uptime: '15 days, 3 hours',
+      storage: {
+        used: 45,
+        total: 128
+      },
+      memory: {
+        used: 2.8,
+        total: 8
+      },
+      temperature: 42
+    }
+  );
 
-  const updateSetting = async (key: string, value: any) => {
+  // Track Pi connection status
+  const [piConnected, setPiConnected] = useState(false); // Start as disconnected until verified
+
+  // Poll Pi connection and system info every 1 minute
+  React.useEffect(() => {
+    const pollStatus = async () => {
+      try {
+        // Check Pi connection status
+        const connRes = await axios.get('/api/pi/status');
+        const isConnected = connRes.data.connected;
+        setPiConnected(isConnected);
+
+        // Only fetch system info if Pi is connected
+        if (isConnected) {
+          const sysRes = await axios.get('/api/system/info');
+          if (sysRes.data.success) {
+            setSystemInfo(sysRes.data);
+          }
+        }
+      } catch (err) {
+        // Handle error silently, no backend terminal printing
+        setPiConnected(false);
+      }
+    };
+    
+    // Initial poll
+    pollStatus();
+    
+    // Set up interval for every 1 minute
+    const interval = setInterval(pollStatus, 60000); // 1 min
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const updateSetting = async (key: string, value: unknown) => {
     try {
       setSettings(prev => ({ ...prev, [key]: value }));
       
@@ -65,13 +115,15 @@ export const SettingsPanel: React.FC = () => {
     }
   };
 
-  const updateNestedSetting = async (parent: string, key: string, value: any) => {
+  const updateNestedSetting = async (parent: keyof typeof settings, key: string, value: unknown) => {
     try {
       setSettings(prev => {
-        const parentSetting = prev[parent as keyof typeof prev] as any;
+        const parentSetting = prev[parent as keyof typeof prev] as typeof settings[keyof typeof settings];
         return {
           ...prev,
-          [parent]: { ...parentSetting, [key]: value }
+          [parent]: typeof parentSetting === 'object' && parentSetting !== null 
+            ? { ...parentSetting, [key]: value } 
+            : { [key]: value }
         };
       });
       
@@ -191,6 +243,16 @@ export const SettingsPanel: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Smartphone className="h-4 w-4" />
+                <label className="text-sm font-medium">Pi Connection</label>
+              </div>
+              <Badge variant={piConnected ? "default" : "secondary"}>
+                {piConnected ? 'Connected' : 'Disconnected'}
+              </Badge>
+            </div>
+
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Wifi className="h-4 w-4" />

@@ -76,46 +76,19 @@ export const NetworkScanner: React.FC<NetworkScannerProps> = ({
           });
 
           if (response.ok) {
-            let data: Record<string, unknown> = {};
-            try {
-              const contentType = response.headers.get('content-type');
-              
-              if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
-              } else {
-                // Handle HTML or plain text responses
-                const textContent = await response.text();
-                console.log(`Found device at ${hostname} (non-JSON response):`, textContent.substring(0, 100));
-                
-                // Check if it looks like a Smart Monitor response
-                if (textContent.includes('Smart') || textContent.includes('Monitor') || textContent.includes('Pi')) {
-                  data = {
-                    name: `Smart Monitor Pi (${hostname})`,
-                    type: 'html_response',
-                    content: textContent.substring(0, 200)
-                  };
-                }
-              }
-            } catch (parseError) {
-              console.log(`Response parsing failed for ${hostname}:`, parseError);
-              data = {
-                name: `Device at ${hostname}`,
-                type: 'unknown_response'
-              };
-            }
-            
+            const data = await response.json();
             console.log(`Found device at ${hostname}:`, data);
             
             const device: NetworkDevice = {
               id: `pi-${hostname}`,
-              name: (typeof data.name === 'string' ? data.name : null) || `Smart Monitor Pi (${hostname})`,
+              name: data.name || `Smart Monitor Pi (${hostname})`,
               type: 'raspberry-pi',
               ip: hostname,
-              mac: typeof data.mac === 'string' ? data.mac : undefined,
+              mac: data.mac,
               status: 'online',
               lastSeen: 'Just now',
               manufacturer: 'Raspberry Pi Foundation',
-              services: Array.isArray(data.services) ? data.services : ['Smart Monitor Web', 'HTTP', 'SSH']
+              services: data.services || ['Smart Monitor API', 'HTTP', 'SSH']
             };
             foundDevices.push(device);
           }
@@ -133,7 +106,6 @@ export const NetworkScanner: React.FC<NetworkScannerProps> = ({
         
         // Common Pi IP addresses to check first
         const commonIPs = [
-          '192.168.234.180', // Detected working IP
           `${networkBase}.100`,
           `${networkBase}.101`,
           `${networkBase}.102`,
@@ -166,46 +138,19 @@ export const NetworkScanner: React.FC<NetworkScannerProps> = ({
             });
 
             if (response.ok) {
-              let data: Record<string, unknown> = {};
-              try {
-                const contentType = response.headers.get('content-type');
-                
-                if (contentType && contentType.includes('application/json')) {
-                  data = await response.json();
-                } else {
-                  // Handle HTML or plain text responses
-                  const textContent = await response.text();
-                  console.log(`Found device at ${ip} (non-JSON response):`, textContent.substring(0, 100));
-                  
-                  // Check if it looks like a Smart Monitor response
-                  if (textContent.includes('Smart') || textContent.includes('Monitor') || textContent.includes('Pi')) {
-                    data = {
-                      name: `Smart Monitor Pi (${ip})`,
-                      type: 'html_response',
-                      content: textContent.substring(0, 200)
-                    };
-                  }
-                }
-              } catch (parseError) {
-                console.log(`Response parsing failed for ${ip}:`, parseError);
-                data = {
-                  name: `Device at ${ip}`,
-                  type: 'unknown_response'
-                };
-              }
-              
+              const data = await response.json();
               console.log(`Found device at ${ip}:`, data);
               
               const device: NetworkDevice = {
                 id: `pi-${ip}`,
-                name: (typeof data.name === 'string' ? data.name : null) || `Smart Monitor Pi (${ip})`,
+                name: data.name || `Smart Monitor Pi (${ip})`,
                 type: 'raspberry-pi',
                 ip: ip,
-                mac: typeof data.mac === 'string' ? data.mac : undefined,
+                mac: data.mac,
                 status: 'online',
                 lastSeen: 'Just now',
                 manufacturer: 'Raspberry Pi Foundation',
-                services: Array.isArray(data.services) ? data.services : ['Smart Monitor Web', 'HTTP', 'SSH']
+                services: data.services || ['Smart Monitor API', 'HTTP', 'SSH']
               };
               
               if (!foundDevices.find(d => d.ip === device.ip)) {
@@ -273,52 +218,19 @@ export const NetworkScanner: React.FC<NetworkScannerProps> = ({
       });
 
       if (response.ok) {
-        let data: Record<string, unknown> = {};
-        try {
-          const contentType = response.headers.get('content-type');
-          
-          if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
-          } else {
-            // Handle HTML or plain text responses
-            const textContent = await response.text();
-            console.log(`Found device at custom IP ${customIP} (non-JSON response):`, textContent.substring(0, 100));
-            
-            // Check if it looks like a Smart Monitor response
-            if (textContent.includes('Smart') || textContent.includes('Monitor') || textContent.includes('Pi')) {
-              data = {
-                name: `Smart Monitor Pi (${customIP})`,
-                type: 'html_response',
-                content: textContent.substring(0, 200)
-              };
-            } else {
-              data = {
-                name: `Web Server (${customIP})`,
-                type: 'web_server',
-                content: textContent.substring(0, 200)
-              };
-            }
-          }
-        } catch (parseError) {
-          console.log(`Response parsing failed for ${customIP}:`, parseError);
-          data = {
-            name: `Device at ${customIP}`,
-            type: 'unknown_response'
-          };
-        }
-        
+        const data = await response.json();
         console.log(`Found device at custom IP ${customIP}:`, data);
         
         const device: NetworkDevice = {
           id: `pi-${customIP}`,
-          name: (typeof data.name === 'string' ? data.name : null) || `Smart Monitor Pi (${customIP})`,
+          name: data.name || `Smart Monitor Pi (${customIP})`,
           type: 'raspberry-pi',
           ip: customIP,
-          mac: typeof data.mac === 'string' ? data.mac : undefined,
+          mac: data.mac,
           status: 'online',
           lastSeen: 'Just now',
           manufacturer: 'Raspberry Pi Foundation',
-          services: Array.isArray(data.services) ? data.services : ['Smart Monitor Web', 'HTTP', 'SSH']
+          services: data.services || ['Smart Monitor API', 'HTTP', 'SSH']
         };
         
         setDevices(prev => {
@@ -437,7 +349,7 @@ export const NetworkScanner: React.FC<NetworkScannerProps> = ({
               <div className="flex gap-2">
                 <Input
                   id="custom-ip"
-                  placeholder="192.168.1.100"
+                  placeholder="192.168.1.180"
                   value={customIP}
                   onChange={(e) => setCustomIP(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && testCustomIP()}

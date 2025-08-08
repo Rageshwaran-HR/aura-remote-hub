@@ -1,187 +1,228 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { toast } from '@/hooks/use-toast';
-import axios from 'axios';
+import React, { useEffect } from 'react';
+import Joystick, { IJoystickChangeValue } from 'rc-joystick';
 
 interface GameJoystickProps {
   selectedGame: string;
 }
 
-type GameAction = 'up' | 'down' | 'left' | 'right' | 'a' | 'b' | 'x' | 'y' | 'l' | 'r' | 'start' | 'select';
-
 export const GameJoystick: React.FC<GameJoystickProps> = ({ selectedGame }) => {
-  const [activeButton, setActiveButton] = useState<string | null>(null);
+  const [clickedButtons, setClickedButtons] = React.useState<string>('None');
+  const [activeButtons, setActiveButtons] = React.useState<string[]>([]);
+  const [joystickDirection, setJoystickDirection] = React.useState<string>('None');
 
-  const sendGameControl = async (action: GameAction) => {
-    try {
-      setActiveButton(action);
-      
-      await axios.post('/api/game/control', {
-        game: selectedGame,
-        action: action
-      });
-      
-      toast({
-        title: "Game Control",
-        description: `${action.toUpperCase()} pressed`,
-      });
-      
-      setTimeout(() => setActiveButton(null), 100);
-    } catch (error) {
-      console.error('Failed to send game control:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send game control",
-        variant: "destructive"
-      });
-      setActiveButton(null);
-    }
+  const updateClickedButtons = (button: string) => {
+    setClickedButtons((prev) => (prev === 'None' ? button : `${prev} + ${button}`));
   };
 
-  const getButtonClass = (action: string) => {
-    const baseClass = "joystick-button w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-75 active:scale-95";
-    const isActive = activeButton === action;
-    return `${baseClass} ${isActive ? 'control-active' : ''}`;
+  const handleButtonPress = (button: string) => {
+    setActiveButtons((prev) => {
+      if (!prev.includes(button)) {
+        return [...prev, button];
+      }
+      return prev;
+    });
   };
 
-  const getDPadClass = (action: string) => {
-    const baseClass = "joystick-button w-14 h-14 flex items-center justify-center text-lg font-bold transition-all duration-75 active:scale-95";
-    const isActive = activeButton === action;
-    return `${baseClass} ${isActive ? 'control-active' : ''}`;
+  const handleButtonRelease = (button: string) => {
+    setActiveButtons((prev) => prev.filter((b) => b !== button));
   };
+
+  const handleJoystickChange = (val: IJoystickChangeValue) => {
+    setJoystickDirection(val.direction || 'None');
+  };
+
+  // Prevent button events from interfering with joystick
+  const handleButtonTouch = (e: React.TouchEvent, action: () => void) => {
+    e.stopPropagation(); // Prevent event bubbling to joystick
+    e.preventDefault();
+    action();
+  };
+
+  useEffect(() => {
+    // Request fullscreen mode when the controller is opened
+    const requestFullscreen = () => {
+      const element = document.documentElement;
+      if (element.requestFullscreen) {
+        element.requestFullscreen();
+      }
+    };
+
+    requestFullscreen();
+
+    // Only prevent scrolling and context menu, allow button/joystick interactions
+    const preventScroll = (e: TouchEvent) => {
+      // Only prevent default for document body/html, not for controller elements
+      const target = e.target as HTMLElement;
+      if (target === document.body || target === document.documentElement || 
+          (!target.closest('.joystick-container') && !target.closest('button'))) {
+        e.preventDefault();
+      }
+    };
+
+    const preventContextMenu = (e: Event) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+    document.addEventListener('touchstart', preventScroll, { passive: false });
+    document.addEventListener('contextmenu', preventContextMenu);
+
+    return () => {
+      document.removeEventListener('touchmove', preventScroll);
+      document.removeEventListener('touchstart', preventScroll);
+      document.removeEventListener('contextmenu', preventContextMenu);
+    };
+  }, []);
 
   return (
-    <Card className="glass-card p-6 space-y-6">
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-primary">Game Controller</h3>
-        <p className="text-sm text-muted-foreground">Playing: {selectedGame}</p>
+    <div className="fixed inset-0 bg-black flex flex-row items-center justify-between select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
+      <div className="absolute top-4 left-4 text-white">
+        <h1 className="text-2xl font-bold">{selectedGame}</h1>
       </div>
 
-      <div className="flex justify-between items-center">
-        {/* D-Pad */}
-        <div className="relative w-32 h-32">
-          <div className="absolute inset-0 flex items-center justify-center">
-            {/* Up */}
-            <button
-              className={`${getDPadClass('up')} absolute top-0 rounded-t-xl`}
-              onTouchStart={() => sendGameControl('up')}
-              onMouseDown={() => sendGameControl('up')}
-            >
-              ↑
-            </button>
-            
-            {/* Down */}
-            <button
-              className={`${getDPadClass('down')} absolute bottom-0 rounded-b-xl`}
-              onTouchStart={() => sendGameControl('down')}
-              onMouseDown={() => sendGameControl('down')}
-            >
-              ↓
-            </button>
-            
-            {/* Left */}
-            <button
-              className={`${getDPadClass('left')} absolute left-0 rounded-l-xl`}
-              onTouchStart={() => sendGameControl('left')}
-              onMouseDown={() => sendGameControl('left')}
-            >
-              ←
-            </button>
-            
-            {/* Right */}
-            <button
-              className={`${getDPadClass('right')} absolute right-0 rounded-r-xl`}
-              onTouchStart={() => sendGameControl('right')}
-              onMouseDown={() => sendGameControl('right')}
-            >
-              →
-            </button>
-            
-            {/* Center */}
-            <div className="w-8 h-8 bg-muted rounded-lg"></div>
-          </div>
-        </div>
+      {/* Top Center: Display Active Buttons and Joystick Direction */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-white text-center">
+        <div className="text-lg font-bold">Active: {activeButtons.length > 0 ? activeButtons.join(' + ') : 'None'}</div>
+        <div className="text-sm">Joystick: {joystickDirection}</div>
+      </div>
 
-        {/* Action Buttons */}
-        <div className="relative w-32 h-32">
-          <div className="absolute inset-0 flex items-center justify-center">
-            {/* Y */}
-            <button
-              className={`${getButtonClass('y')} absolute top-2 bg-gradient-to-b from-primary/20 to-primary/40`}
-              onTouchStart={() => sendGameControl('y')}
-              onMouseDown={() => sendGameControl('y')}
-            >
-              Y
-            </button>
-            
-            {/* A */}
-            <button
-              className={`${getButtonClass('a')} absolute bottom-2 bg-gradient-to-b from-secondary/20 to-secondary/40`}
-              onTouchStart={() => sendGameControl('a')}
-              onMouseDown={() => sendGameControl('a')}
-            >
-              A
-            </button>
-            
-            {/* X */}
-            <button
-              className={`${getButtonClass('x')} absolute left-2 bg-gradient-to-b from-accent/20 to-accent/40`}
-              onTouchStart={() => sendGameControl('x')}
-              onMouseDown={() => sendGameControl('x')}
-            >
-              X
-            </button>
-            
-            {/* B */}
-            <button
-              className={`${getButtonClass('b')} absolute right-2 bg-gradient-to-b from-destructive/20 to-destructive/40`}
-              onTouchStart={() => sendGameControl('b')}
-              onMouseDown={() => sendGameControl('b')}
-            >
-              B
-            </button>
-          </div>
+      {/* Left Side: Joystick */}
+      <div className="flex-1 flex items-center justify-center">
+        <div className="joystick-wrapper relative touch-none" style={{ isolation: 'isolate', touchAction: 'none' }}>
+          <Joystick
+            baseRadius={100}
+            controllerRadius={40}
+            onChange={handleJoystickChange}
+            className="joystick-container opacity-70"
+            controllerClassName="joystick-controller opacity-80"
+          />
         </div>
       </div>
 
-      {/* Shoulder Buttons */}
-      <div className="flex justify-between gap-4">
+      {/* Top Left and Right: Shoulder Buttons */}
+      <div className="absolute top-12 left-4">
         <button
-          className={`${getButtonClass('l')} flex-1 h-10 rounded-lg bg-gradient-to-r from-muted to-muted/60`}
-          onTouchStart={() => sendGameControl('l')}
-          onMouseDown={() => sendGameControl('l')}
+          className={`w-20 h-10 rounded-lg text-white font-bold transition-all duration-150 ${
+            activeButtons.includes('L') 
+              ? 'bg-gray-500 scale-95 shadow-inner' 
+              : 'bg-gray-700 hover:bg-gray-600 active:scale-95'
+          }`}
+          onMouseDown={() => handleButtonPress('L')}
+          onMouseUp={() => handleButtonRelease('L')}
+          onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('L'))}
+          onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('L'))}
         >
           L
         </button>
-        
+      </div>
+      <div className="absolute top-12 right-4">
         <button
-          className={`${getButtonClass('r')} flex-1 h-10 rounded-lg bg-gradient-to-r from-muted to-muted/60`}
-          onTouchStart={() => sendGameControl('r')}
-          onMouseDown={() => sendGameControl('r')}
+          className={`w-20 h-10 rounded-lg text-white font-bold transition-all duration-150 ${
+            activeButtons.includes('R') 
+              ? 'bg-gray-500 scale-95 shadow-inner' 
+              : 'bg-gray-700 hover:bg-gray-600 active:scale-95'
+          }`}
+          onMouseDown={() => handleButtonPress('R')}
+          onMouseUp={() => handleButtonRelease('R')}
+          onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('R'))}
+          onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('R'))}
         >
           R
         </button>
       </div>
 
-      {/* System Buttons */}
-      <div className="flex justify-center gap-6">
-        <button
-          className={`${getButtonClass('select')} px-4 h-8 rounded-md text-xs`}
-          onTouchStart={() => sendGameControl('select')}
-          onMouseDown={() => sendGameControl('select')}
-        >
-          SELECT
-        </button>
-        
-        <button
-          className={`${getButtonClass('start')} px-4 h-8 rounded-md text-xs`}
-          onTouchStart={() => sendGameControl('start')}
-          onMouseDown={() => sendGameControl('start')}
-        >
-          START
-        </button>
+      {/* Right Side: Buttons in Rhombus Shape */}
+      <div className="flex-1 flex flex-col items-center justify-center space-y-4">
+        <div className="relative w-48 h-48 mb-12 flex items-center justify-center">
+          <button
+            className={`absolute top-0 left-1/2 transform -translate-x-1/2 w-16 h-16 rounded-full text-white font-bold transition-all duration-150 ${
+              activeButtons.includes('X') 
+                ? 'bg-green-400 scale-95 shadow-inner' 
+                : 'bg-green-500 hover:bg-green-400 active:scale-95'
+            }`}
+            onMouseDown={() => handleButtonPress('X')}
+            onMouseUp={() => handleButtonRelease('X')}
+            onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('X'))}
+            onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('X'))}
+          >
+            X
+          </button>
+          <button
+            className={`absolute left-0 top-1/2 transform -translate-y-1/2 w-16 h-16 rounded-full text-white font-bold transition-all duration-150 ${
+              activeButtons.includes('Y') 
+                ? 'bg-yellow-400 scale-95 shadow-inner' 
+                : 'bg-yellow-500 hover:bg-yellow-400 active:scale-95'
+            }`}
+            onMouseDown={() => handleButtonPress('Y')}
+            onMouseUp={() => handleButtonRelease('Y')}
+            onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('Y'))}
+            onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('Y'))}
+          >
+            Y
+          </button>
+          <button
+            className={`absolute right-0 top-1/2 transform -translate-y-1/2 w-16 h-16 rounded-full text-white font-bold transition-all duration-150 ${
+              activeButtons.includes('A') 
+                ? 'bg-red-400 scale-95 shadow-inner' 
+                : 'bg-red-500 hover:bg-red-400 active:scale-95'
+            }`}
+            onMouseDown={() => handleButtonPress('A')}
+            onMouseUp={() => handleButtonRelease('A')}
+            onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('A'))}
+            onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('A'))}
+          >
+            A
+          </button>
+          <button
+            className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-16 h-16 rounded-full text-white font-bold transition-all duration-150 ${
+              activeButtons.includes('B') 
+                ? 'bg-blue-400 scale-95 shadow-inner' 
+                : 'bg-blue-500 hover:bg-blue-400 active:scale-95'
+            }`}
+            onMouseDown={() => handleButtonPress('B')}
+            onMouseUp={() => handleButtonRelease('B')}
+            onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('B'))}
+            onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('B'))}
+          >
+            B
+          </button>
+        </div>
+
+        {/* System Buttons */}
+        <div className="absolute bottom-12 flex justify-center space-x-6 w-full max-w-md">
+          <button
+            className={`w-24 h-10 rounded-md text-white font-bold transition-all duration-150 ${
+              activeButtons.includes('Select') 
+                ? 'bg-gray-400 scale-95 shadow-inner' 
+                : 'bg-gray-500 hover:bg-gray-400 active:scale-95'
+            }`}
+            onMouseDown={() => handleButtonPress('Select')}
+            onMouseUp={() => handleButtonRelease('Select')}
+            onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('Select'))}
+            onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('Select'))}
+          >
+            Select
+          </button>
+          <button
+            className={`w-24 h-10 rounded-md text-white font-bold transition-all duration-150 ${
+              activeButtons.includes('Start') 
+                ? 'bg-gray-400 scale-95 shadow-inner' 
+                : 'bg-gray-500 hover:bg-gray-400 active:scale-95'
+            }`}
+            onMouseDown={() => handleButtonPress('Start')}
+            onMouseUp={() => handleButtonRelease('Start')}
+            onTouchStart={(e) => handleButtonTouch(e, () => handleButtonPress('Start'))}
+            onTouchEnd={(e) => handleButtonTouch(e, () => handleButtonRelease('Start'))}
+          >
+            Start
+          </button>
+        </div>
       </div>
-    </Card>
+
+      {/* Exit Button */}
+      <div className="absolute bottom-4 left-4">
+        <button className="w-20 h-8 rounded-md bg-red-600 text-white font-bold">Exit</button>
+      </div>
+    </div>
   );
 };
